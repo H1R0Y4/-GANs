@@ -6,9 +6,8 @@ from layers import *
 
 
 class Generator(nn.Module):
-    def __init__(self, ngpu, ch=64, dim_z=128):
+    def __init__(self, ch=64, dim_z=128):
         super(Generator, self).__init__()
-        self.ngpu = ngpu
         self.sn_linear = spectral_norm(nn.Linear(dim_z, 4 * 4 * 16 * ch, bias=True))
         self.res0 = ResBlock_UP(16 * ch, 16 * ch)
         self.res1 = ResBlock_UP(16 * ch, 8 * ch)
@@ -42,33 +41,32 @@ class Generator(nn.Module):
 
 
 class Discriminator(nn.Module):
-    def __init__(self, ngpu, ch=64):
+    def __init__(self, ch=64):
         super(Discriminator, self).__init__()
-        self.ngpu = ngpu
-        self.res0 = ResBlock_DOWN(3, ch, preactivation=False, down=True)  # output torch.Size([b, 64, 128, 128])
-        self.res1 = ResBlock_DOWN(ch, 2 * ch, preactivation=True, down=True)  # output torch.Size([b, 128, 64, 64])
-        self.attn = SelfAttention(ch * 2)  # 論文通り 解像度64*64にattention層を追加
-        self.res2 = ResBlock_DOWN(2 * ch, 4 * ch, preactivation=True, down=True)  # output torch.Size([b, 256, 32, 32])
-        self.res3 = ResBlock_DOWN(4 * ch, 8 * ch, preactivation=True, down=True)  # output torch.Size([b, 512, 16, 16])
-        self.res4 = ResBlock_DOWN(8 * ch, 8 * ch, preactivation=True, down=True)  # output torch.Size([b, 512, 8, 8])
-        self.res5 = ResBlock_DOWN(8 * ch, 16 * ch, preactivation=True, down=True)  # output torch.Size([b, 1024, 4, 4])
-        self.res6 = ResBlock_DOWN(16 * ch, 16 * ch, preactivation=True, down=False)  # output torch.Size([b, 1024, 4, 4])
+        self.res_d0 = ResBlock_DOWN(3, ch, preactivation=False, down=True)  
+        self.res_d1 = ResBlock_DOWN(ch, 2 * ch, preactivation=True, down=True) 
+        self.attn_d = SelfAttention(ch * 2)  # 論文通り 解像度64*64にattention層を追加
+        self.res_d2 = ResBlock_DOWN(2 * ch, 4 * ch, preactivation=True, down=True) 
+        self.res_d3 = ResBlock_DOWN(4 * ch, 8 * ch, preactivation=True, down=True) 
+        self.res_d4 = ResBlock_DOWN(8 * ch, 8 * ch, preactivation=True, down=True) 
+        self.res_d5 = ResBlock_DOWN(8 * ch, 16 * ch, preactivation=True, down=True)
+        self.res_d6 = ResBlock_DOWN(16 * ch, 16 * ch, preactivation=True, down=False)  
 
         self.sn_linear = spectral_norm(nn.Linear(16 * ch, 1, bias=True))
         self.activation = nn.ReLU(inplace=False)
 
     def forward(self, x):
         # Stick x into h for cleaner for loops without flow control
+        print("x",x.shape)
         h = x
-        self.res0(h)
-        h = self.res0(h)
-        h = self.res1(h)
-        h = self.res2(h)
-        h = self.res3(h)
-        h = self.res4(h)
-        h = self.attn(h)
-        h = self.res5(h)
-        h = self.res6(h)
+        h = self.res_d0(h)
+        h = self.res_d1(h)
+        h = self.res_d2(h)
+        h = self.res_d3(h)
+        h = self.res_d4(h)
+        h = self.attn_d(h)
+        h = self.res_d5(h)
+        h = self.res_d6(h)
         # global sum pool
         h = torch.sum(self.activation(h), [2, 3])
         # Get initial class-unconditional output

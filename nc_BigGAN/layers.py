@@ -3,6 +3,13 @@ from torch import nn
 import torch.nn.functional as F
 from torch.nn.utils import spectral_norm
 
+#こう、かけるかも
+def ccbn(x,out_feature):
+    bn =nn.BatchNorm2d(affine=False)(x)
+    gain = nn.Linear(out_feature)
+    bias = nn.Linear(out_feature)
+    bn =(bn * gain) + bias
+    return out
 
 class SelfAttention(nn.Module):
     """特徴量マップのための自己注意機構"""
@@ -27,14 +34,16 @@ class SelfAttention(nn.Module):
     def forward(self, x, y=None):
         # apply convs
         theta = self.theta(x)
-        phi = F.max_pool2d(self.phi(x), [2, 2])
-        g = F.max_pool2d(self.g(x), [2, 2])
+        phi = F.max_pool2d(self.phi(x), [2, 2]) 
+        g = F.max_pool2d(self.g(x), [2, 2]) 
+        
         # perform reshapes
-        theta = theta.view(-1, self.ch // 8, x.shape[2] * x.shape[3])
-        phi = phi.view(-1, self.ch // 8, x.shape[2] * x.shape[3] // 4)
-        g = g.view(-1, self.ch // 2, x.shape[2] * x.shape[3] // 4)
+        theta = theta.view(-1, self.ch // 8, x.shape[2] * x.shape[3]) 
+        phi = phi.view(-1, self.ch // 8, x.shape[2] * x.shape[3] // 4) 
+        g = g.view(-1, self.ch // 2, x.shape[2] * x.shape[3] // 4) 
         # matmul and softmax to get attention maps
-        beta = F.softmax(torch.bmm(theta.transpose(1, 2), phi), -1)
+        beta = F.softmax(torch.bmm(theta.transpose(1, 2), phi), -1) 
+        
         # Attention map times g path
         o = self.o(
             torch.bmm(g, beta.transpose(1, 2)).view(
@@ -86,7 +95,7 @@ class ResBlock_UP(nn.Module):
         else:
             return x
 
-    def foward(self, z, y):
+    def forward(self, z, y):
         return self.residual(z, y) + self.shortcut(z)
 
 
@@ -146,5 +155,5 @@ class ResBlock_DOWN(nn.Module):
                 x = self.sn_conv_sc(x)
         return x
 
-    def foward(self, x):
-        return self.residual(x) + self.shortcut(z)
+    def forward(self, x):
+        return self.residual(x) + self.shortcut(x)
